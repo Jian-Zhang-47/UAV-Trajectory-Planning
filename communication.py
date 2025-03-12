@@ -2,12 +2,22 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from config import TX_POWER_MAX, SNR_MIN, NOISE, NUM_CHANNELS, NUM_UAVS
+from config import *
+
+
 
 # dynamiclly optimize tx power: P_tx >= SNR_min * (interference + noise) / channel_gain
-def dynamic_optimize_tx_power(interference, channel_gain, SNR_min=SNR_MIN, noise=NOISE, TX_POWER_MAX=TX_POWER_MAX):
+def dynamic_optimize_tx_power(interference = 1e-9, channel_gain = CHANNEL_GAIN, SNR_min=SNR_MIN, noise=NOISE, TX_POWER_MAX=TX_POWER_MAX):
     required_power = SNR_min * (interference + noise) / channel_gain
     return min(required_power, TX_POWER_MAX)
+
+def calculate_tx_rate(tx_power_W, interference = 1e-9, channel_gain = CHANNEL_GAIN, noise = NOISE, bandwidth_Hz = BANDWIDTH):
+    """
+    Shannon's formula
+    """
+    SNR_linear = (tx_power_W * channel_gain) / (interference + noise)
+    capacity_bps = bandwidth_Hz * np.log2(1 + SNR_linear)
+    return capacity_bps / 1e6  # 转换为Mbps
 
 class GAT(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
@@ -19,7 +29,7 @@ class GAT(nn.Module):
         return torch.softmax(self.fc2(x), dim=1)
 
 # Channel assignment (GAT)
-def channel_allocation(uav_features, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS, epochs=200, lr=0.01):
+def channel_assignment(uav_features, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS, epochs=200, lr=0.01):
     gat_model = GAT(input_dim=2, hidden_dim=8, output_dim=num_channels)
     optimizer_net = optim.Adam(gat_model.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()

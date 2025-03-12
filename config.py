@@ -10,15 +10,21 @@ NUM_OBSTACLES = 5      # Number of obstacles
 COVERAGE_RADIUS = 50   # UAV coverage radius & merging targets radius
 SAFE_RADIUS = 30       # Obstacle safety distance
 
-# Energy
-INITIAL_ENERGY = 100   # UAV energy limit
-FLIGHT_COST_FACTOR = 0.01  # The factor of energy consumption per unit distance
-TX_DURATION = 0.01  # Duration of data transfer
+# UAV
+INITIAL_ENERGY = 77 * 3600   # UAV energy limit
+SPEED = 8              # m/s
+P_HOVER = 180.0        # Hover power (W)
+K = 0.2                # Air resistance coefficient
+P_PAYLOAD = 10.0       # Payload power consumption (W)
+P_COMM = 5.0           # Communication consumption (W)
 
 # Transmission
-TX_POWER_MAX = 10      # Maximum transmission power
+TX_POWER_MAX = 0.1     # Maximum transmission power (W)
 SNR_MIN = 10           # Minimum SNR
-NOISE = 1e-3           # Noise
+NOISE = 1e-13          # Noise
+CHANNEL_GAIN = 1e-7    # Channel gain
+BANDWIDTH = 20e6       # Bandwidth (Hz)
+IMAGE_SIZE = 10        # Image size (MB)
 
 # GA
 POP_SIZE = 100         # Population size

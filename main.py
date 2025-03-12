@@ -1,12 +1,10 @@
 # main.py
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 from config import *
 from environment import generate_uavs, generate_targets, generate_obstacles
 from target_assignment import merge_targets_dbscan, assign_targets_kmeans
 from path_planning import optimize_route, detour_edge_multi, route_cost_multi
-from communication import channel_allocation
+from communication import channel_assignment
 from simulation import simulate_uav_energy
 from visualization import plot_env_trajectory
 import torch
@@ -41,7 +39,7 @@ for i in range(NUM_UAVS):
 
 # 4. Assign Channels
 uav_features = torch.tensor(uavs, dtype=torch.float32)
-channels_assigned, _ = channel_allocation(uav_features)
+channels_assigned, _ = channel_assignment(uav_features)
 print("Channel assignment result:", channels_assigned)
 
 # 5. UAV Energy Simulation
@@ -60,8 +58,8 @@ for i in range(NUM_UAVS):
     )
     print(f"Residual energy: {remaining_energy:.2f}")
     print(f"Flight energy cost: {flight_energy:.2f}, Transmission energy cost: {tx_energy:.2f}")
-    for idx, (p, e) in enumerate(tx_records):
-        print(f"Transmission No. {idx+1}: optimized power = {p:.2f}, energy cost = {e:.2f}")
+    for idx, (p, e, total_e, t) in enumerate(tx_records):
+        print(f"Transmission No. {idx+1}: optimized power = {p:.2f}, tx energy cost = {e:.2f}, tx and hover energy cost = {total_e:.2f}, tx duration = {t:.2f}")
 
 # 6. Visualization
 plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_costs)
