@@ -4,12 +4,14 @@ import torch
 
 # Environment
 AREA_SIZE = 1000       # Area size
-NUM_UAVS = 3           # Number of UAVs
+NUM_UAVS = 6           # Number of UAVs
+NUM_BSS = 5
 NUM_TARGETS = 50       # Number of targets
-NUM_OBSTACLES = 5      # Number of obstacles
+NUM_OBSTACLES = 10      # Number of obstacles
 COVERAGE_RADIUS = 50   # UAV coverage radius & merging targets radius
-SAFE_RADIUS = 30       # Obstacle safety distance
-
+SAFE_RADIUS = 80       # Obstacle safety distance
+height_uav = 100
+height_bs = 50
 # UAV
 INITIAL_ENERGY = 77 * 3600   # UAV energy limit
 SPEED = 8              # m/s
@@ -19,23 +21,58 @@ P_PAYLOAD = 10.0       # Payload power consumption (W)
 P_COMM = 5.0           # Communication consumption (W)
 
 # Transmission
-TX_POWER_MAX = 0.1     # Maximum transmission power (W)
+T_TRANSMISSION = COVERAGE_RADIUS/SPEED
+TX_POWER_MAX = 10     # Maximum transmission power (W)
 SNR_MIN = 10           # Minimum SNR
 NOISE = 1e-13          # Noise
-CHANNEL_GAIN = 1e-7    # Channel gain
 BANDWIDTH = 20e6       # Bandwidth (Hz)
-IMAGE_SIZE = 10        # Image size (MB)
-
+IMAGE_SIZE = 20        # Image size (MB)
+max_user_rate = 10
+FREQUENCY = 2.4e9
+NUM_CHANNELS = 2       # Number of channels
 # GA
 POP_SIZE = 100         # Population size
 GENERATIONS = 500      # Iterative algebra
 ELITE_SIZE = 2         # Number of elite
-MUTATION_RATE = 0.1    # Mutation probability
+MUTATION_RATE = 0.001    # Mutation probability
 
-# Channel
-NUM_CHANNELS = 5       # Number of channels
+
 
 # Random Seed
 np.random.seed(42)
 random.seed(42)
 torch.manual_seed(42)
+
+
+# Simulation ---------------------------------------------------------------
+num_time_slots_default = 120
+
+num_episodes_train = 200
+num_episodes_test = 1
+
+verbose_default = 0
+results_folder = 'results'
+save_model_after_train = True
+load_pretrained_model = (num_episodes_train == 0)
+
+seeds_test = list(range(num_episodes_test))
+
+num_users_list = [4, 6, 8, 10]
+num_channels_list = [1, 2, 3, 4]
+min_velocity_list = [10, 30, 50]
+
+# Learning -----------------------------------------------------------------
+
+fc_sizes = [128, 64]
+lstm_state_size = 256
+
+epsilon_init = 1
+epsilon_decay = 0.9995
+epsilon_min = 0.001
+
+buffer_capacity = 1000
+batch_size = 64
+replace_target_interval = 20
+learning_rate = 0.001
+history_size = 4
+gamma = 0.75

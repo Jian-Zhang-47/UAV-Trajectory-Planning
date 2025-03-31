@@ -1,18 +1,20 @@
 # main.py
 import numpy as np
 from config import *
-from environment import generate_uavs, generate_targets, generate_obstacles
+from environment import *
 from target_assignment import merge_targets_dbscan, assign_targets_kmeans
-from path_planning import optimize_route, detour_edge_multi, route_cost_multi
+from path_planning import optimize_route, route_cost_multi
 from communication import channel_assignment
-from simulation import simulate_uav_energy
+from simulation import *
 from visualization import plot_env_trajectory
+from ma_d3ql_model import*
 import torch
 
 # 1. Generate Environment
 uavs = generate_uavs()
 targets = generate_targets()
 obstacles = generate_obstacles()
+bss = generate_base_stations()
 
 # 2. Merge Targets and Assign Clusters
 clusters = merge_targets_dbscan(targets)
@@ -42,24 +44,27 @@ uav_features = torch.tensor(uavs, dtype=torch.float32)
 channels_assigned, _ = channel_assignment(uav_features)
 print("Channel assignment result:", channels_assigned)
 
-# 5. UAV Energy Simulation
-for i in range(NUM_UAVS):
-    print(f"\n--- UAV {i+1} Energy Simulation ---")
-    expanded = []
-    waypts = optimal_paths[i].tolist()
-    for j in range(len(waypts)-1):
-        sub_r = detour_edge_multi(np.array(waypts[j]), np.array(waypts[j+1]), obstacles, SAFE_RADIUS)
-        if j == 0:
-            expanded.extend(sub_r)
-        else:
-            expanded.extend(sub_r[1:])
-    remaining_energy, flight_energy, tx_energy, tx_records, full_route = simulate_uav_energy(
-        i, optimal_paths[i], obstacles, SAFE_RADIUS
-    )
-    print(f"Residual energy: {remaining_energy:.2f}")
-    print(f"Flight energy cost: {flight_energy:.2f}, Transmission energy cost: {tx_energy:.2f}")
-    for idx, (p, e, total_e, t) in enumerate(tx_records):
-        print(f"Transmission No. {idx+1}: optimized power = {p:.2f}, tx energy cost = {e:.2f}, tx and hover energy cost = {total_e:.2f}, tx duration = {t:.2f}")
+# 6. 初始化 MA_D3QL 强化学习模型（用于传输功率决策）
+# 状态维度：NUM_BASE_STATIONS + 2（基站信道增益 + UAV归一化位置）
+num_features = NUM_BSS + 2
+# 定义候选发射功率集合（离散动作）
+power_level_all_channels = [0.01, 0.05, 0.1]
+rl_agent = MA_D3QL(num_users=NUM_UAVS, num_channels=NUM_CHANNELS,
+                    power_level_all_channels=power_level_all_channels,
+                    num_features=num_features, algorithm='MA_D3QL')
 
+# 5. UAV Energy Simulation
+all_tx_points = []
+for i in range(NUM_UAVS):
+        print(f"\n--- UAV {i+1} 能量仿真（持续传输优化） ---")
+        remaining_energy, flight_energy, tx_energy, tx_records, full_route, tx_points = simulate_uav_energy_continuous(
+            i, optimal_paths[i], obstacles, SAFE_RADIUS, rl_agent, bss, channels_assigned
+        )
+        all_tx_points.append(tx_points)
+        print(f"剩余能量: {remaining_energy:.2f}")
+        print(f"飞行能耗: {flight_energy:.2f}, 传输能耗: {tx_energy:.2f}")
+        for idx, (p, e, tx_duration, rate) in enumerate(tx_records):
+            print(f"传输段 {idx+1}: RL选功率 = {p:.2f}W, 传输能耗 = {e:.2f}J, 时长 = {tx_duration:.2f}s, 速率 = {rate:.2f}Mbps")
+        
 # 6. Visualization
-plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_costs)
+plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=all_tx_points)
