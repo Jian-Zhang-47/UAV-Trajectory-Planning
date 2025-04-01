@@ -4,13 +4,14 @@ import numpy as np
 from config import COVERAGE_RADIUS, SAFE_RADIUS, NUM_UAVS
 from path_planning import detour_edge_multi
 
-def plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=None):
+def plot_env_trajectory(uavs, bss, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=None):
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 6))
 
     axs[0].scatter(targets[:,0], targets[:,1], marker='x', color='blue', label="Original Targets")
     axs[0].scatter(clusters[:,0], clusters[:,1], marker='o', color='green', label="Clusters")
-    axs[0].scatter(uavs[:,0], uavs[:,1], marker='s', color='red', label="UAV Initial Position")
+    axs[0].scatter(uavs[:,0], uavs[:,1], marker='s', color='red', label="UAV Initial Positions")
+    axs[0].scatter(bss[:,0], bss[:,1], marker='^', color='black', label="Base Stations")
     axs[0].scatter(obstacles[:,0], obstacles[:,1], marker='X', color='black', label="Obstacles")
     for idx, obs in enumerate(obstacles):
         lab = "Obstacle Coverage" if idx==0 else None
@@ -47,6 +48,7 @@ def plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_
                 axs[1].add_patch(tx_circ)
 
     axs[1].scatter(targets[:, 0], targets[:, 1], c='blue', marker='x', label="Original Targets")
+    axs[1].scatter(bss[:,0], bss[:,1], marker='^', color='black', label="Base Stations")
     axs[1].scatter(obstacles[:, 0], obstacles[:, 1], marker='X', color='black', label="Obstacles")
     for idx, obs in enumerate(obstacles):
         lab = "Obstacle Coverage Area" if idx == 0 else None

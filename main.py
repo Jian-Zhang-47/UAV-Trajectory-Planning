@@ -61,8 +61,8 @@ for i in range(NUM_UAVS):
         all_tx_points.append(tx_points)
         print(f"Residual Energy: {remaining_energy:.2f}")
         print(f"Flight cost: {flight_energy:.2f}, Tx cost: {tx_energy:.2f}")
-        for idx, (p, e, tx_duration, rate) in enumerate(tx_records):
-            print(f"Tx segment {idx+1}: RL power = {p:.2f}W, Tx cost = {e:.2f}J, Tx duration = {tx_duration:.2f}s, Rate = {rate:.2f}Mbps")
+        for idx, (rl_p, p, e, tx_duration, rate) in enumerate(tx_records):
+            print(f"Tx segment {idx+1}: RL power = {rl_p:.2f}W, Choose power = {p:.2f}W, Tx cost = {e:.2f}J, Tx duration = {tx_duration:.2f}s, Rate = {rate:.2f}Mbps")
         
 # 7. Visualization
-plot_env_trajectory(uavs, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=all_tx_points)
+plot_env_trajectory(uavs, bss, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=all_tx_points)

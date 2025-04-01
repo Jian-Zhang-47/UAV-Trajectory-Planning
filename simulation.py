@@ -72,12 +72,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
         actions = rl_agent.make_action_for_all_users(state_dict, deterministic=True)
         action = actions[uav_index]
         chosen_power = rl_agent.power_level_all_channels[action]
-        assigned_channel = channels_assigned[uav_index]
-        
-        actions = rl_agent.make_action_for_all_users(state_dict, deterministic=True)
-
-        action = actions[uav_index]
-        chosen_power = rl_agent.power_level_all_channels[action]
+        rl_power = rl_agent.power_level_all_channels[action]
         assigned_channel = channels_assigned[uav_index]
 
         interference_val = 0
@@ -86,6 +81,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
                 power_j = rl_agent.power_level_all_channels[actions[j]]
                 gain_j = state_dict[j][assigned_channel]
                 interference_val += power_j * gain_j
+
         channel_gain_val = state_bs[assigned_channel]
         
         rate = calculate_tx_rate(chosen_power, interference=interference_val,
@@ -107,7 +103,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
         E_tx = chosen_power * tx_duration
         energy -= E_tx
         tx_energy_total += E_tx
-        tx_records.append((chosen_power, E_tx, tx_duration, rate))
+        tx_records.append((rl_power, chosen_power, E_tx, tx_duration, rate))
         
         if energy < 0:
             print(f"UAV {uav_index+1} energy depleted during transmission event {event+1}!")
