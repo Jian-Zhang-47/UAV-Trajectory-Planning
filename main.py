@@ -3,11 +3,11 @@ import numpy as np
 from config import *
 from environment import *
 from target_assignment import merge_targets_dbscan, assign_targets_kmeans
-from path_planning import optimize_route, route_cost_multi
+from path_planning import *
 from communication import channel_assignment
 from simulation import *
 from visualization import plot_env_trajectory
-from ma_d3ql_model import*
+from simulation_runner import *
 import torch
 
 # 1. Generate Environment
@@ -39,24 +39,25 @@ for i in range(NUM_UAVS):
         path_costs.append(0.0)
         print(f"Total cost of [UAV {i+1}] path: 0.00 (No target)")
 
+max_time_slot,_ = time_slot_max(optimal_paths)
+
 # 4. Assign Channels
 uav_features = torch.tensor(uavs, dtype=torch.float32)
 channels_assigned, _ = channel_assignment(uav_features)
 print("Channel assignment result:", channels_assigned)
 
 # 5. Initialize the MA_D3QL reinforcement learning model
-num_features = NUM_BSS + 2
-power_level_all_channels = power_level
-rl_agent = MA_D3QL(num_users=NUM_UAVS, num_channels=NUM_CHANNELS,
-                    power_level_all_channels=power_level_all_channels,
-                    num_features=num_features, algorithm='MA_D3QL')
+simulation_runner = SimulationRunner(user_route=optimal_paths, num_users=NUM_UAVS, num_base_stations=NUM_BSS, num_time_slots=max_time_slot, num_channels=NUM_CHANNELS,
+                                             base_stations_locations=bss,velocity=SPEED)
+simulation_runner.run_one_episode()
 
+P_opt = np.load(f'{results_folder}/user_transmission_powers_all_time_{num_episodes_test-1}.npy')
 # 6. UAV Energy Simulation
 all_tx_points = []
 for i in range(NUM_UAVS):
         print(f"\n--- UAV {i+1} energy simulation ---")
-        remaining_energy, flight_energy, tx_energy, tx_records, full_route, tx_points = simulate_uav_energy_continuous(
-            i, optimal_paths[i], obstacles, SAFE_RADIUS, rl_agent, bss, channels_assigned
+        remaining_energy, flight_energy, tx_energy, tx_records, full_route, tx_points = simulate_uav_energy(
+            i, optimal_paths[i], obstacles, SAFE_RADIUS, P_opt, bss, channels_assigned
         )
         all_tx_points.append(tx_points)
         print(f"Residual Energy: {remaining_energy:.2f}")

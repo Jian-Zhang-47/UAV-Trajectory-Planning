@@ -1,6 +1,6 @@
 import numpy as np
 import random
-from config import ELITE_SIZE, MUTATION_RATE, POP_SIZE, GENERATIONS
+from config import *
 
 # Determine whether the current point conflicts with obstacles
 def is_segment_safe(current, candidate, obs, safe_distance, num_samples=10):
@@ -196,3 +196,58 @@ def optimize_route(waypoints, obstacles, safe_distance, pop_size=POP_SIZE, gener
     best_route_ga = genetic_algorithm_tsp(waypoints, obstacles, safe_distance, pop_size, generations, elite_size, mutation_rate)
     best_route = two_opt(best_route_ga, waypoints, obstacles, safe_distance)
     return best_route
+
+
+def generate_points(route, velocity):
+    seg_lengths = np.sqrt(np.sum(np.diff(route, axis=0)**2, axis=1))
+    cum_lengths = np.insert(np.cumsum(seg_lengths), 0, 0)
+    total_length = cum_lengths[-1]
+    total_time = total_length / velocity
+    T = int(np.ceil(total_time))
+    positions = [] 
+    times = np.arange(0, T + 1)
+
+    for t in times:
+        d = t * velocity
+        seg_idx = np.searchsorted(cum_lengths, d, side='right') - 1
+        
+        if seg_idx >= len(route) - 1:
+            pos = route[-1]
+        else:
+            segment_start = route[seg_idx]
+            segment_end = route[seg_idx + 1]
+            d_seg = d - cum_lengths[seg_idx]
+            seg_length = seg_lengths[seg_idx]
+            ratio = d_seg / seg_length if seg_length != 0 else 0
+            pos = segment_start + ratio * (segment_end - segment_start)
+        positions.append(pos)
+
+    positions = np.array(positions)
+    return positions
+
+
+
+
+def determine_users_locations(optimization_paths, num_users=NUM_UAVS,
+                              velocity=SPEED
+                              ):
+    max_time_slots, user_points = time_slot_max(optimization_paths)
+    user_locations_all_time = np.zeros((max_time_slots, num_users, 2))
+    
+    for u, points in enumerate(user_points):
+        len_points = points.shape[0]
+        user_locations_all_time[:len_points, u, :] = points
+        if len_points < max_time_slots:
+            last_coordinate = points[-1, :]
+            user_locations_all_time[len_points:, u, :] = np.tile(last_coordinate, (max_time_slots - len_points, 1))
+    
+    return user_locations_all_time
+
+def time_slot_max(optimization_paths, num_users=NUM_UAVS, velocity=SPEED):
+    user_points = []
+    for u in range(num_users):
+        points = generate_points(optimization_paths[u], velocity)
+        user_points.append(points)
+    
+    max_time_slots = max(points.shape[0] for points in user_points)
+    return max_time_slots, user_points

@@ -6,11 +6,8 @@ import torch.cuda
 import torch.nn as nn
 import tqdm
 
-from config import (load_pretrained_model, batch_size, replace_target_interval, gamma,
-                    num_episodes_train, num_time_slots_default,
-                    epsilon_init, epsilon_decay, epsilon_min,
-                    verbose_default, save_model_after_train)
-from model import ReplayBuffer, DeepQNetwork
+from config import *
+from model import *
 
 
 def get_numpy_from_dict_values(x):
@@ -18,15 +15,14 @@ def get_numpy_from_dict_values(x):
 
 
 class MA_D3QL:
-    def __init__(self, num_users, num_channels, power_level_all_channels, num_features,
-                 algorithm, model_name='ma_d3ql'):
+    def __init__(self, num_users, num_channels, power_level_all_channels, num_features, num_time_slots, model_name='ma_d3ql'):
 
         self.num_users = num_users
         self.num_channels = num_channels
         self.power_level_all_channels = power_level_all_channels
-        self.algorithm = algorithm
         self.model_name = model_name
         self.num_features = num_features
+        self.num_time_slots = num_time_slots
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -55,7 +51,7 @@ class MA_D3QL:
                                                  num_features=num_features, num_actions=len(power_level_all_channels),
                                                  device=self.device)
 
-            if self.load_pretrained_model and (self.algorithm in []):
+            if self.load_pretrained_model:
                 file = f'results/model_{i}.pt'
                 self.models[i].load_checkpoint(file)
 
@@ -72,11 +68,11 @@ class MA_D3QL:
         self.T = tqdm.trange(num_episodes_train, desc='Progress', leave=True,
                              disable=bool(1 - verbose_default))
 
-    def run_training(self, env, algorithm, saving_folder):
+    def run_training(self, env, num_time_slots, saving_folder):
 
-        rewards_history = np.zeros((num_episodes_train, num_time_slots_default))
-        loss_history = np.zeros((num_episodes_train, num_time_slots_default))
-        epsilon_history = np.zeros((num_episodes_train, num_time_slots_default))
+        rewards_history = np.zeros((num_episodes_train, num_time_slots))
+        loss_history = np.zeros((num_episodes_train, num_time_slots))
+        epsilon_history = np.zeros((num_episodes_train, num_time_slots))
 
         for ep in self.T:
 
@@ -106,9 +102,9 @@ class MA_D3QL:
             self.T.set_description(f"Reward: {(np.round(total_reward, 2))}")
             self.T.refresh()
 
-        np.save(f'{saving_folder}/all_rewards_{algorithm}.npy', rewards_history)
-        np.save(f'{saving_folder}/all_loss_values_{algorithm}.npy', loss_history)
-        np.save(f'{saving_folder}/all_epsilon_values_{algorithm}.npy', epsilon_history)
+        np.save(f'{saving_folder}/all_rewards.npy', rewards_history)
+        np.save(f'{saving_folder}/all_loss_values.npy', loss_history)
+        np.save(f'{saving_folder}/all_epsilon_values.npy', epsilon_history)
 
         if save_model_after_train:
             for i in range(self.num_users):
@@ -128,6 +124,8 @@ class MA_D3QL:
                 actions[i] = th.argmax(advantages).item()
 
         return actions
+    
+
 
     def add_aggregated_experience_to_buffers(self, previous_observations, new_observations,
                                              actions, rewards, dones):
@@ -167,8 +165,10 @@ class MA_D3QL:
         states, next_states, actions, reward, dones = self.buffer.sample_buffer()
 
         # caution: requires_grad=True is problematic on cpu
-        q_predicted = th.zeros((self.batch_size, self.num_users), requires_grad=True).to(self.device)
-        q_next = th.zeros((self.batch_size, self.num_users)).to(self.device)
+        # q_predicted = th.zeros((self.batch_size, self.num_users), requires_grad=True).to(self.device)
+        # q_next = th.zeros((self.batch_size, self.num_users)).to(self.device)
+        q_predicted_list = []
+        q_next_list = []
 
         for i in range(self.num_users):
             # initialize local models
@@ -177,8 +177,10 @@ class MA_D3QL:
             self.__replace_target_networks(model_index=i)
 
             V_states, A_states = self.models[i].forward(states[:, i, :])
-            q_predicted[:, i] \
-                = self.__convert_value_advantage_to_q_values(V_states, A_states)[self.indexes, actions[:, i]]
+            # q_predicted[:, i] \
+            #     = self.__convert_value_advantage_to_q_values(V_states, A_states)[self.indexes, actions[:, i]]
+            q_pred_agent = self.__convert_value_advantage_to_q_values(V_states, A_states)[self.indexes, actions[:, i]]
+            q_predicted_list.append(q_pred_agent)
 
             with th.no_grad():
                 _, A_next_states = self.models[i].forward(next_states[:, i, :])
@@ -186,9 +188,17 @@ class MA_D3QL:
 
                 V_next_states, A_next_states = self.target_models[i].forward(next_states[:, i, :])
                 q_next_all_actions = self.__convert_value_advantage_to_q_values(V_next_states, A_next_states)
-                q_next[:, i] = q_next_all_actions.gather(1, actions_next_states_best.unsqueeze(1)).squeeze()
-                q_next[dones[:, i], i] = 0.0
+                # q_next[:, i] = q_next_all_actions.gather(1, actions_next_states_best.unsqueeze(1)).squeeze()
+                # q_next[dones[:, i], i] = 0.0
+                q_next_agent = q_next_all_actions.gather(1, actions_next_states_best.unsqueeze(1)).squeeze()
+                # 当状态为终止状态时，将 Q 值置为 0
+                q_next_agent[dones[:, i]] = 0.0
+                q_next_list.append(q_next_agent)
 
+        # 将列表中的结果沿第二个维度堆叠，形状为 (batch_size, num_users)
+        q_predicted = th.stack(q_predicted_list, dim=1)
+        q_next = th.stack(q_next_list, dim=1)
+        
         q_target = th.nan_to_num(reward).mean(axis=-1).unsqueeze(-1) + (self.gamma * q_next)
 
         loss = self.loss(q_predicted, q_target).to(self.device)

@@ -46,8 +46,8 @@ def assign_base_stations(uav_positions, bs_locations):
 def calculate_channel_gain(user_loc, bs_loc, f_c=FREQUENCY, sigma_dB=8):
     c = 3e8
     lambda_ = c / f_c
-    user_3d = np.array([user_loc[0], user_loc[1], 100])
-    bs_3d = np.array([bs_loc[0], bs_loc[1], 50])
+    user_3d = np.array([user_loc[0], user_loc[1], height_uav])
+    bs_3d = np.array([bs_loc[0], bs_loc[1], height_bs])
     d = np.linalg.norm(user_3d - bs_3d)
     fspl = (lambda_ / (4 * np.pi * d)) ** 2
     shadowing_dB = np.random.normal(0, sigma_dB)
@@ -79,3 +79,33 @@ def calculate_tx_rate(tx_power_W, interference, channel_gain, noise, bandwidth_H
     SNR_linear = (tx_power_W * channel_gain) / (interference + noise)
     capacity_bps = bandwidth_Hz * np.log2(1 + SNR_linear)
     return capacity_bps / 1e6
+
+
+def calculate_path_loss_user_bs(user_loc, bs_loc, alpha_path_loss=2):
+    # alpha_path_loss: path-loss exponent
+
+    user_loc = np.concatenate([user_loc, [height_uav]])
+    bs_loc = np.concatenate([bs_loc, [height_bs]])
+    user_3d = np.array([user_loc[0], user_loc[1], height_uav])
+    bs_3d = np.array([bs_loc[0], bs_loc[1], height_bs])
+    d = np.linalg.norm(user_3d - bs_3d)
+    path_loss =  d** (- alpha_path_loss)
+
+    return path_loss
+
+def calculate_path_losses_and_associations_all_time(user_locations_all_time, bs_locations,
+                                                    num_time_slots):
+    num_users = user_locations_all_time.shape[1]
+    num_base_stations = bs_locations.shape[0]
+
+    path_losses_all_time = np.zeros((num_time_slots, num_users, num_base_stations))
+
+    for t in range(num_time_slots):
+        for u in range(num_users):
+            for b in range(num_base_stations):
+                path_losses_all_time[t, u, b] = calculate_path_loss_user_bs(user_locations_all_time[t, u, :],
+                                                                            bs_locations[b])
+
+    user_bs_associations_num_all_time = path_losses_all_time.argmax(axis=-1)
+
+    return path_losses_all_time, user_bs_associations_num_all_time

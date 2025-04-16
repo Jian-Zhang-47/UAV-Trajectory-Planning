@@ -5,11 +5,11 @@ import torch as th
 import torch.nn as nn
 import torch.optim as optim
 
+
 from config import (buffer_capacity, history_size, batch_size,
                     fc_sizes, lstm_state_size, learning_rate)
 
 th.cuda.empty_cache()
-
 
 class ReplayBuffer(ABC):
 

@@ -2,9 +2,10 @@ import numpy as np
 from path_planning import detour_edge_multi
 from communication import *
 from config import *
+from fly_power import *
 
 # Simulate the flight energy consumption and transmission energy consumption of UAV
-def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distance, rl_agent,
+def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt,
                                      bs_locations, channels_assigned, initial_energy=INITIAL_ENERGY):
     energy = initial_energy
     flight_energy_total = 0
@@ -22,7 +23,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
             expanded_route.extend(sub_route)
         else:
             expanded_route.extend(sub_route[1:])
-    p_total = P_HOVER + K * (SPEED ** 3) + P_PAYLOAD + P_COMM
+    p_fly = fly_power()
     segment_times = []
     for i in range(len(expanded_route) - 1):
         p1 = np.array(expanded_route[i])
@@ -30,7 +31,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
         d = np.linalg.norm(p2 - p1)
         dt = d / SPEED
         segment_times.append(dt)
-        flight_energy = p_total * dt
+        flight_energy = p_fly * dt
         energy -= flight_energy
         flight_energy_total += flight_energy
         if energy < 0:
@@ -69,16 +70,15 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
         for j in range(NUM_UAVS):
             state_dict[j] = state_vector.copy()
         
-        actions = rl_agent.make_action_for_all_users(state_dict, deterministic=True)
-        action = actions[uav_index]
-        chosen_power = rl_agent.power_level_all_channels[action]
-        rl_power = rl_agent.power_level_all_channels[action]
+        actions = P_opt[num_tx_events]
         assigned_channel = channels_assigned[uav_index]
+        d3ql_power = actions[assigned_channel][uav_index]
+        chosen_power = d3ql_power
 
         interference_val = 0
         for j in range(NUM_UAVS):
             if j != uav_index and channels_assigned[j] == assigned_channel:
-                power_j = rl_agent.power_level_all_channels[actions[j]]
+                power_j = P_opt[num_tx_events][assigned_channel][j]
                 gain_j = state_dict[j][assigned_channel]
                 interference_val += power_j * gain_j
 
@@ -103,8 +103,7 @@ def simulate_uav_energy_continuous(uav_index, key_nodes, obstacles, safe_distanc
         E_tx = chosen_power * tx_duration
         energy -= E_tx
         tx_energy_total += E_tx
-        tx_records.append((rl_power, chosen_power, E_tx, tx_duration, rate))
-        
+        tx_records.append((d3ql_power, chosen_power, E_tx, tx_duration, rate))
         if energy < 0:
             print(f"UAV {uav_index+1} energy depleted during transmission event {event+1}!")
             break
