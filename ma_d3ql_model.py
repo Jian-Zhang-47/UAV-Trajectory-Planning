@@ -2,12 +2,12 @@ from copy import deepcopy
 
 import numpy as np
 import torch as th
-import torch.cuda
 import torch.nn as nn
-import tqdm
+from tqdm import tqdm
 
 from config import *
 from model import *
+from communication import channel_assignment
 
 
 def get_numpy_from_dict_values(x):
@@ -65,7 +65,7 @@ class MA_D3QL:
         self.indexes = np.arange(self.batch_size)
 
         # create progress tracker
-        self.T = tqdm.trange(num_episodes_train, desc='Progress', leave=True,
+        self.T = tqdm(num_episodes_train, desc='Progress', leave=True,
                              disable=bool(1 - verbose_default))
 
     def run_training(self, env, num_time_slots, saving_folder):
@@ -74,30 +74,38 @@ class MA_D3QL:
         loss_history = np.zeros((num_episodes_train, num_time_slots))
         epsilon_history = np.zeros((num_episodes_train, num_time_slots))
 
+        self.T = tqdm(range(num_episodes_train), desc="Training episodes", unit="ep", leave=True)
+
         for ep in self.T:
 
             state, _ = env.reset(episode_num=ep, plane_this_episode=None)
             done = {i: False for i in range(self.num_users)}
             total_reward = 0
 
-            while not any(done.values()):
-                self.__update_epsilon()
+            with tqdm(total=num_time_slots, desc=f"Ep {ep+1}", leave=False, unit="ts") as pbar_ts:
+                while not any(done.values()):
+                    self.__update_epsilon()
 
-                prev_state = deepcopy(state)
+                    prev_state = deepcopy(state)
 
-                action = self.make_action_for_all_users(state)
+                    action = self.make_action_for_all_users(state)
+                    t = env.t
+                    user_locations_now = env.user_locations_all_time[t]
+                    channel_assignment_list = channel_assignment(user_locations_now)
+                    channel_assignment_dict = {i: int(channel_assignment_list[i]) for i in range(self.num_users)}
+                    state, reward, done, _, _ = env.step(action, channel_assignment_dict)
+                    avg_reward = np.array(list(reward.values())).mean()
+                    total_reward += avg_reward
 
-                state, reward, done, _, _ = env.step(action)
-                avg_reward = np.array(list(reward.values())).mean()
-                total_reward += avg_reward
+                    self.add_aggregated_experience_to_buffers(prev_state, state, action, reward, done)
 
-                self.add_aggregated_experience_to_buffers(prev_state, state, action, reward, done)
+                    loss = self.train_on_random_samples()
 
-                loss = self.train_on_random_samples()
+                    rewards_history[ep, env.t - 1] = avg_reward
+                    loss_history[ep, env.t - 1] = loss
+                    epsilon_history[ep, env.t - 1] = self.epsilon
 
-                rewards_history[ep, env.t - 1] = avg_reward
-                loss_history[ep, env.t - 1] = loss
-                epsilon_history[ep, env.t - 1] = self.epsilon
+                    pbar_ts.update(1)
 
             self.T.set_description(f"Reward: {(np.round(total_reward, 2))}")
             self.T.refresh()

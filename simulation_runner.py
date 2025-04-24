@@ -6,6 +6,9 @@ import torch
 from config import *
 from env import Env
 from ma_d3ql_model import MA_D3QL
+from communication import channel_assignment
+from path_planning import determine_users_locations
+from tqdm import tqdm
 
 
 def make_dir(folder_name, parent):
@@ -45,15 +48,23 @@ class SimulationRunner:
             np.random.seed(seeds_test[ep])
 
             # Test environment
-            # we set episode_num to zero for a new plane with each reset
             state, _ = self.env.reset(episode_num=0)
             done = {i: False for i in range(self.num_users)}
+            channel_assignment_all_time = np.zeros((self.env.num_time_slots, self.num_users), dtype=int)
+            print("Testing policy...")
+            with tqdm(total=self.num_time_slots, desc="Testing episode", unit="ts") as pbar:
+                while not any(done.values()):
 
-            while not any(done.values()):
+                        action = ma_d3ql.make_action_for_all_users(state, deterministic=True)
 
-                action = ma_d3ql.make_action_for_all_users(state, deterministic=True)
+                        t = self.env.t
+                        self.user_locations_all_time = determine_users_locations(self.user_route)
+                        channel_assignment_list = channel_assignment(self.user_locations_all_time[t])
+                        channel_assignment_dict = {i: int(channel_assignment_list[i]) for i in range(self.num_users)}
+                        channel_assignment_all_time[t] = channel_assignment_list
+                        state, reward, done, _, _ = self.env.step(action, channel_assignment_dict)
 
-                state, reward, done, _, _ = self.env.step(action)
+                        pbar.update(1)
 
 
             np.save(f'{self.saving_folder}/user_locations_all_time_{ep}.npy',
@@ -62,6 +73,8 @@ class SimulationRunner:
                     self.env.base_stations_locations)
             np.save(f'{self.saving_folder}/user_bs_associations_num_all_time_{ep}.npy',
                     self.env.user_bs_associations_num_all_time)
+            np.save(f'{self.saving_folder}/user_channel_associations_num_all_time_{ep}.npy',
+                    channel_assignment_all_time)
             np.save(f'{self.saving_folder}/rates_all_time_{ep}.npy',
                     self.env.rates_all_time)
             np.save(f'{self.saving_folder}/user_transmission_powers_all_time_{ep}.npy',

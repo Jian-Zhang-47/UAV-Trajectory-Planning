@@ -4,12 +4,10 @@ from config import *
 from environment import *
 from target_assignment import merge_targets_dbscan, assign_targets_kmeans
 from path_planning import *
-from communication import channel_assignment
 from simulation import *
 from visualization import plot_env_trajectory
 from simulation_runner import *
-import torch
-
+from tqdm import tqdm
 # 1. Generate Environment
 uavs = generate_uavs()
 targets = generate_targets()
@@ -41,29 +39,25 @@ for i in range(NUM_UAVS):
 
 max_time_slot,_ = time_slot_max(optimal_paths)
 
-# 4. Assign Channels
-uav_features = torch.tensor(uavs, dtype=torch.float32)
-channels_assigned, _ = channel_assignment(uav_features)
-print("Channel assignment result:", channels_assigned)
-
-# 5. Initialize the MA_D3QL reinforcement learning model
+# 4. Initialize the MA_D3QL reinforcement learning model
 simulation_runner = SimulationRunner(user_route=optimal_paths, num_users=NUM_UAVS, num_base_stations=NUM_BSS, num_time_slots=max_time_slot, num_channels=NUM_CHANNELS,
                                              base_stations_locations=bss,velocity=SPEED)
 simulation_runner.run_one_episode()
 
-P_opt = np.load(f'{results_folder}/user_transmission_powers_all_time_{num_episodes_test-1}.npy')
-# 6. UAV Energy Simulation
+P_opt_all_time = np.load(f'{results_folder}/user_transmission_powers_all_time_{num_episodes_test-1}.npy')
+channels_assigned_all_time = np.load(f'{results_folder}/user_channel_associations_num_all_time_{num_episodes_test-1}.npy')
+# 5. UAV Energy Simulation
 all_tx_points = []
-for i in range(NUM_UAVS):
+for i in tqdm(range(NUM_UAVS), desc="Simulating energy"):
         print(f"\n--- UAV {i+1} energy simulation ---")
         remaining_energy, flight_energy, tx_energy, tx_records, full_route, tx_points = simulate_uav_energy(
-            i, optimal_paths[i], obstacles, SAFE_RADIUS, P_opt, bss, channels_assigned
+            i, optimal_paths[i], obstacles, SAFE_RADIUS, P_opt_all_time, bss, channels_assigned_all_time
         )
         all_tx_points.append(tx_points)
         print(f"Residual Energy: {remaining_energy:.2f}")
         print(f"Flight cost: {flight_energy:.2f}, Tx cost: {tx_energy:.2f}")
-        for idx, (rl_p, p, e, tx_duration, rate) in enumerate(tx_records):
-            print(f"Tx segment {idx+1}: RL power = {rl_p:.2f}W, Choose power = {p:.2f}W, Tx cost = {e:.2f}J, Tx duration = {tx_duration:.2f}s, Rate = {rate:.2f}Mbps")
+        for idx, (rl_p, p, c, e, tx_duration, rate) in enumerate(tx_records):
+            print(f"Tx segment {idx+1}: RL power = {rl_p:.2f}W, Choose power = {p:.2f}W, Choose channel = {c}, Tx cost = {e:.2f}J, Tx duration = {tx_duration:.2f}s, Rate = {rate:.2f}Mbps")
         
-# 7. Visualization
+# 6. Visualization
 plot_env_trajectory(uavs, bss, targets, clusters, obstacles, optimal_paths, path_costs, tx_points_list=all_tx_points)

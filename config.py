@@ -4,7 +4,7 @@ import torch
 
 # Environment
 AREA_SIZE = 500       # Area size
-NUM_UAVS = 2           # Number of UAVs
+NUM_UAVS = 4           # Number of UAVs
 NUM_BSS = 2            # Number of BSs
 NUM_TARGETS = 50       # Number of targets
 NUM_OBSTACLES = 0      # Number of obstacles
@@ -13,7 +13,7 @@ SAFE_RADIUS = 80       # Obstacle safety distance
 height_uav = 100
 height_bs = 50
 # UAV
-INITIAL_ENERGY = 77 * 3600   # UAV energy limit
+INITIAL_ENERGY = 2.5e5   # UAV energy limit
 SPEED = 8                    # m/s
 U_tip = 120                  # tip speed of rotor blade, m/s
 d0 = 0.6                     # parasite drag coefficient
@@ -36,14 +36,18 @@ FREQUENCY = 2.4e9
 NUM_CHANNELS = 2       # Number of channels
 TX_POWER_MAX = 0.1
 TX_POWER_MIN = 0.01
-power_levels = [0.01, 0.05, 0.1]
+power_levels = np.concatenate((np.array([TX_POWER_MIN]), np.linspace(0.05, TX_POWER_MAX, 20)))
 
 # GA
-POP_SIZE = 100         # Population size
-GENERATIONS = 500      # Iterative algebra
-ELITE_SIZE = 2         # Number of elite
-MUTATION_RATE = 0.001    # Mutation probability
+POP_SIZE = 300         # Population size
+GENERATIONS = 1000      # Iterative algebra
+ELITE_SIZE = 5         # Number of elite
+MUTATION_RATE = 0.02    # Mutation probability
 
+# GAT
+epochs = 200
+lr = 0.005
+hidden_dim = 8
 
 
 # Random Seed

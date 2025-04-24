@@ -5,8 +5,8 @@ from config import *
 from fly_power import *
 
 # Simulate the flight energy consumption and transmission energy consumption of UAV
-def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt,
-                                     bs_locations, channels_assigned, initial_energy=INITIAL_ENERGY):
+def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt_all_time,
+                                     bs_locations, channels_assigned_all_time, initial_energy=INITIAL_ENERGY):
     energy = initial_energy
     flight_energy_total = 0
     tx_energy_total = 0
@@ -70,15 +70,15 @@ def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt,
         for j in range(NUM_UAVS):
             state_dict[j] = state_vector.copy()
         
-        actions = P_opt[num_tx_events]
-        assigned_channel = channels_assigned[uav_index]
+        actions = P_opt_all_time[num_tx_events]
+        assigned_channel = channels_assigned_all_time[num_tx_events][uav_index]
         d3ql_power = actions[assigned_channel][uav_index]
         chosen_power = d3ql_power
 
         interference_val = 0
         for j in range(NUM_UAVS):
-            if j != uav_index and channels_assigned[j] == assigned_channel:
-                power_j = P_opt[num_tx_events][assigned_channel][j]
+            if j != uav_index and channels_assigned_all_time[num_tx_events][j] == assigned_channel:
+                power_j = P_opt_all_time[num_tx_events][assigned_channel][j]
                 gain_j = state_dict[j][assigned_channel]
                 interference_val += power_j * gain_j
 
@@ -103,7 +103,7 @@ def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt,
         E_tx = chosen_power * tx_duration
         energy -= E_tx
         tx_energy_total += E_tx
-        tx_records.append((d3ql_power, chosen_power, E_tx, tx_duration, rate))
+        tx_records.append((d3ql_power, chosen_power, assigned_channel, E_tx, tx_duration, rate))
         if energy < 0:
             print(f"UAV {uav_index+1} energy depleted during transmission event {event+1}!")
             break

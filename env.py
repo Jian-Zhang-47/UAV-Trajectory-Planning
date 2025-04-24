@@ -52,7 +52,6 @@ class Env(gymnasium.Env):
         self.sinrs_all_time = np.zeros((self.num_time_slots, self.num_channels, self.num_users))
 
         self.features_history = np.zeros((self.num_time_slots, self.num_users, self.num_features))
-        self.quantization_level_all_times = np.zeros((self.num_time_slots, self.num_users))
 
     def reset(self, **kwargs):
         self.t = 0
@@ -76,36 +75,37 @@ class Env(gymnasium.Env):
 
         return self.observations, {}
 
-    def step(self, action_dict):
+    def step(self, action_dict, channel_assignment):
         # Execute one time step within the environment
-
-        # Segment Quality Calculations --------------------------------------------------------------------------------
-        self.user_transmission_powers_all_time[self.t, :, :] = np.array([list(self.power_level_all_channels[a])
-                                                                         for a in action_dict.values()]).T
+        self.user_transmission_powers_all_time[self.t, :, :] = 0
+        for i in range(self.num_users):
+            power_vec = self.power_level_all_channels[action_dict[i]]
+            channel = channel_assignment[i]
+            self.user_transmission_powers_all_time[self.t, channel, i] = power_vec[channel]
 
         for c in range(self.num_channels):
-            self.rates_all_time[self.t, c, :], self.sinrs_all_time[self.t, c, :] = \
-                calculate_users_rates_per_channel(self.user_transmission_powers_all_time[self.t, c, :],
-                                                  self.path_losses_all_time[self.t, :],
-                                                  self.user_bs_associations_num_all_time[self.t, :],
-                                                  consider_interference=True)
+            powers_c = self.user_transmission_powers_all_time[self.t, c, :]
+            active_users = (powers_c > 0)
 
-        rate_per_user_this_time = self.rates_all_time[self.t, :, :].sum(axis=0)
+            if active_users.sum() == 0:
+                self.rates_all_time[self.t, c, :] = 0
+                self.sinrs_all_time[self.t, c, :] = 0
+                continue
+
+            rates_c, sinrs_c = calculate_users_rates_per_channel(
+                powers_c,
+                self.path_losses_all_time[self.t],
+                self.user_bs_associations_num_all_time[self.t], 
+                users_in_same_channel=active_users
+            )
+            self.rates_all_time[self.t, c, :] = rates_c
+            self.sinrs_all_time[self.t, c, :] = sinrs_c
+
+        rate_per_user_this_time = self.rates_all_time[self.t].sum(axis=0)
 
 
         # Reward Calculations -----------------------------------------------------------------------------------------
-        reward = {i: rate_per_user_this_time.mean() / max_user_rate for i in range(self.num_users)}
-        
-
-        # Debugging ---------------------------------------------------------------------------------------------------
-        if self.t in self.debug_time_slots:
-            print('actions                      :\n', self.user_transmission_powers_all_time[self.t])
-            print('rate per user                :', rate_per_user_this_time)
-            print('reward                       :', list(reward.values()))
-
-            fig, ax = plt.subplots(1)
-            ax.set_title(f'Qualities at {self.t}')
-            plt.show()
+        reward = {i: rate_per_user_this_time[i] / max_user_rate for i in range(self.num_users)}
 
         # Next State Calculations -------------------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.cluster import DBSCAN, KMeans
 from config import COVERAGE_RADIUS, NUM_UAVS
+from scipy.spatial.distance import cdist
 
 def merge_targets_dbscan(targets, eps=COVERAGE_RADIUS):
     clustering = DBSCAN(eps=eps, min_samples=1).fit(targets)

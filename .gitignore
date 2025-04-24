@@ -1,3 +1,5 @@
 uav_env/
 __pycache__
 results
+.venv
+.conda
