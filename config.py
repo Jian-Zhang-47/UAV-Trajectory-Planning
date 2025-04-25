@@ -2,82 +2,81 @@ import numpy as np
 import random
 import torch
 
-# Environment
-AREA_SIZE = 500       # Area size
-NUM_UAVS = 4           # Number of UAVs
-NUM_BSS = 2            # Number of BSs
-NUM_TARGETS = 50       # Number of targets
-NUM_OBSTACLES = 0      # Number of obstacles
-COVERAGE_RADIUS = 50   # UAV coverage radius & merging targets radius
-SAFE_RADIUS = 80       # Obstacle safety distance
-height_uav = 100
-height_bs = 50
-# UAV
-INITIAL_ENERGY = 2.5e5   # UAV energy limit
-SPEED = 8                    # m/s
-U_tip = 120                  # tip speed of rotor blade, m/s
-d0 = 0.6                     # parasite drag coefficient
-rho = 1.225                  # Air density, kg/m^3
-s = 0.05                     # rotor solidity
-A = 0.503                    # rotor disk area, m^2
-delta = 0.012                # Profile drag coefficient
-omega = 300                  # Blade angular velocity in radians/second
-R = 0.4                      # Rotor radius, m
-W = 20                       # Aircraft weight, Newton
-k = 0.1                      # Incremental correction factor to induced power
-# Transmission
-T_TRANSMISSION = COVERAGE_RADIUS/SPEED
-SNR_MIN = 10           # Minimum SNR
-NOISE = 1e-13          # Noise
-BANDWIDTH = 20e6       # Bandwidth (Hz)
-IMAGE_SIZE = 20        # Image size (MB)
-max_user_rate = 10
-FREQUENCY = 2.4e9
-NUM_CHANNELS = 2       # Number of channels
-TX_POWER_MAX = 0.1
-TX_POWER_MIN = 0.01
-power_levels = np.concatenate((np.array([TX_POWER_MIN]), np.linspace(0.05, TX_POWER_MAX, 20)))
+# Environment Configuration -------------------------------------------------
+AREA_SIZE = 1000            # Area size (meters)
+NUM_UAVS = 4               # Number of UAVs
+NUM_BSS = 2                # Number of Base Stations (BSs)
+NUM_TARGETS = 30           # Number of targets in the environment
+NUM_OBSTACLES = 1          # Number of obstacles
+COVERAGE_RADIUS = 50       # UAV coverage radius and target merging radius (meters)
+SAFE_RADIUS = 80           # Safety distance from obstacles (meters)
+UAV_HEIGHT = 100           # UAV flying height (meters)
+BS_HEIGHT = 50             # Base station height (meters)
 
-# GA
-POP_SIZE = 300         # Population size
-GENERATIONS = 1000      # Iterative algebra
-ELITE_SIZE = 5         # Number of elite
-MUTATION_RATE = 0.02    # Mutation probability
+# UAV Specifications -------------------------------------------------------
+INITIAL_ENERGY = 2.5e5     # UAV energy limit (Joules)
+UAV_SPEED = 8              # UAV speed (m/s)
+ROTOR_TIP_SPEED = 120      # Tip speed of rotor blade (m/s)
+PARASITE_DRAG_COEFF = 0.6  # Parasite drag coefficient
+AIR_DENSITY = 1.225        # Air density (kg/m^3)
+ROTOR_SOLIDITY = 0.05      # Rotor solidity
+ROTOR_DISK_AREA = 0.503    # Rotor disk area (m^2)
+PROFILE_DRAG_COEFF = 0.012 # Profile drag coefficient
+BLADE_ANGULAR_VELOCITY = 300  # Blade angular velocity (rad/s)
+ROTOR_RADIUS = 0.4         # Rotor radius (m)
+AIRCRAFT_WEIGHT = 20       # Aircraft weight (N)
+CORRECTION_FACTOR = 0.1    # Incremental correction factor to induced power
 
-# GAT
-epochs = 200
-lr = 0.005
-hidden_dim = 8
+# Transmission Configuration ----------------------------------------------
+TRANSMISSION_TIME = COVERAGE_RADIUS / UAV_SPEED  # Transmission time (seconds)
+MIN_SNR = 10               # Minimum Signal-to-Noise Ratio (SNR)
+NOISE_LEVEL = 1e-13        # Noise level (W)
+BANDWIDTH = 20e6           # Transmission bandwidth (Hz)
+IMAGE_SIZE = 20            # Image size (MB)
+MAX_UAV_RATE = 10         # Maximum UAV rate (Mbps)
+FREQUENCY = 2.4e9         # Frequency (Hz)
+NUM_CHANNELS = 2           # Number of channels available
+MAX_TX_POWER = 0.1         # Maximum transmission power (Watts)
+MIN_TX_POWER = 0.01       # Minimum transmission power (Watts)
+TX_POWER_LEVELS = np.concatenate((np.array([MIN_TX_POWER]), np.linspace(0.05, MAX_TX_POWER, 20)))
 
+# Genetic Algorithm (GA) Parameters ---------------------------------------
+POPULATION_SIZE = 300      # Population size for GA
+NUM_GENERATIONS = 1000     # Number of generations for GA
+ELITE_SIZE = 5             # Number of elite individuals
+MUTATION_RATE = 0.02       # Probability of mutation
 
-# Random Seed
+# Graph Attention Network (GAT) Hyperparameters --------------------------
+GAT_EPOCHS = 200
+LEARNING_RATE_GAT = 0.005
+HIDDEN_DIM_GAT = 8
+
+# Random Seed for Reproducibility ----------------------------------------
 np.random.seed(42)
 random.seed(42)
 torch.manual_seed(42)
 
+# Simulation Configuration -------------------------------------------------
+NUM_TRAIN_EPISODES = 200    # Number of training episodes
+NUM_TEST_EPISODES = 1      # Number of test episodes
+RESULTS_FOLDER = 'results' # Directory to save results
+VERBOSE_MODE = 0           # Verbosity level for output
+SAVE_MODEL_AFTER_TRAIN = True  # Flag to save the model after training
+LOAD_PRETRAINED_MODEL = (NUM_TRAIN_EPISODES == 0)  # Flag to load pretrained model for testing
+TEST_SEEDS = list(range(NUM_TEST_EPISODES))  # List of test seeds
 
-# Simulation ---------------------------------------------------------------
-num_episodes_train = 200
-num_episodes_test = 1
-results_folder = 'results'
-verbose_default = 0
-save_model_after_train = True
-load_pretrained_model = (num_episodes_train == 0)
+# Learning Parameters -----------------------------------------------------
+FC_LAYER_SIZES = [128, 64]      # Fully connected layer sizes for neural network
+LSTM_STATE_SIZE = 256           # LSTM state size
 
-seeds_test = list(range(num_episodes_test))
+# Exploration Strategy (Epsilon-Greedy) ----------------------------------
+EPSILON_INITIAL = 1            # Initial epsilon for exploration
+EPSILON_DECAY = 0.9995         # Decay factor for epsilon
+EPSILON_MIN = 0.001            # Minimum epsilon value
 
-# Learning -----------------------------------------------------------------
-
-fc_sizes = [128, 64]
-lstm_state_size = 256
-
-epsilon_init = 1
-epsilon_decay = 0.9995
-epsilon_min = 0.001
-
-buffer_capacity = 1000
-batch_size = 64
-replace_target_interval = 20
-learning_rate = 0.001
-history_size = 4
-gamma = 0.75
+BUFFER_CAPACITY = 1000         # Capacity of the experience replay buffer
+BATCH_SIZE = 64                # Batch size for training
+TARGET_UPDATE_INTERVAL = 20    # Interval to update target network
+LEARNING_RATE = 0.001          # Learning rate for optimizer
+HISTORY_SIZE = 4               # Size of the history window for learning
+DISCOUNT_FACTOR = 0.75         # Discount factor (gamma) for Q-learning

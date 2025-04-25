@@ -7,44 +7,55 @@ from config import *
 from torch_geometric.nn import GATConv
 from torch_geometric.data import Data
 from torch_geometric.utils import dense_to_sparse
+import tensorflow as tf
 
-# GAT
+# GAT (Graph Attention Network) Model Definition -------------------------
 class GATNet(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, heads=1):
         super(GATNet, self).__init__()
+        # Define two GAT layers
         self.gat1 = GATConv(input_dim, hidden_dim, heads=heads)
         self.gat2 = GATConv(hidden_dim * heads, output_dim, heads=1)
 
     def forward(self, x, edge_index):
+        # Apply GAT layers and use ELU activation function
         x = F.elu(self.gat1(x, edge_index))
         x = self.gat2(x, edge_index)
+        # Return the output after applying log softmax
         return F.log_softmax(x, dim=1)
 
+# Function to assign channels to UAVs based on their positions -------------------
 def channel_assignment(uavs_pos, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS, 
-                       epochs=epochs, lr=lr, hidden_dim=hidden_dim):
+                       epochs=GAT_EPOCHS, lr=LEARNING_RATE_GAT, hidden_dim=HIDDEN_DIM_GAT):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     uav_features = torch.tensor(uavs_pos)
+    
+    # Create adjacency matrix representing UAVs as a graph
     adj_matrix = torch.ones(num_uavs, num_uavs) - torch.eye(num_uavs)
     edge_index, _ = dense_to_sparse(adj_matrix)
+    
+    # Create data object for graph neural network
     data = Data(x=uav_features, edge_index=edge_index).to(device)
     
+    # Initialize GAT model, optimizer and loss function
     model = GATNet(input_dim=uav_features.shape[1], hidden_dim=hidden_dim, output_dim=num_channels).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.NLLLoss()
     
+    # Define the target channels for each UAV
     target_channels = torch.tensor([i % num_channels for i in range(num_uavs)], dtype=torch.long).to(device)
     
+    # Training loop
     model.train()
     for epoch in range(epochs):
         optimizer.zero_grad()
         data.x = data.x.float()
         out = model(data.x, data.edge_index)
-        loss = loss_fn(out, target_channels)
+        loss = loss_fn(out, target_channels)  # Calculate loss
         loss.backward()
         optimizer.step()
-        # if epoch % 50 == 0:
-        #     print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
     
+    # Evaluate the model to get final channel assignments
     model.eval()
     with torch.no_grad():
         final_output = model(data.x, data.edge_index)
@@ -52,82 +63,74 @@ def channel_assignment(uavs_pos, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS,
     
     return channels_assigned
 
+# Function to calculate the channel gain between UAV and base station -----------
+def calculate_channel_gain(uav_pos, bs_loc, f_c=FREQUENCY, sigma_dB=8):
+    # Convert UAV and base station positions to 3D coordinates
+    uav_3d = np.array([uav_pos[0], uav_pos[1], UAV_HEIGHT])
+    bs_3d = np.array([bs_loc[0], bs_loc[1], BS_HEIGHT])
+    
+    # Calculate the Euclidean distance between UAV and base station
+    d = np.linalg.norm(uav_3d - bs_3d)
 
-# Assign base station to uav
-def assign_base_stations(uav_positions, bs_locations):
-    num_uavs = uav_positions.shape[0]
-    num_bs = bs_locations.shape[0]
-    path_losses = np.zeros((num_uavs, num_bs))
-    for i in range(num_uavs):
-        for j in range(num_bs):
-            path_losses[i, j] = calculate_channel_gain(uav_positions[i], bs_locations[j])
-    associations = np.argmax(path_losses, axis=1)
-    return path_losses, associations
+    # Calculate path loss in dB (using a simplified model)
+    path_loss_dB = 20 * np.log10(d) + 20 * np.log10(f_c) - 147.55 + sigma_dB
+    # Convert path loss to channel gain
+    channel_gain = 10 ** (-path_loss_dB / 10)
+    return channel_gain
 
-# Calculate channel gain using free space path loss combined with log-normal shadow fading model
-def calculate_channel_gain(user_loc, bs_loc, f_c=FREQUENCY, sigma_dB=8):
-    c = 3e8
-    lambda_ = c / f_c
-    user_3d = np.array([user_loc[0], user_loc[1], height_uav])
-    bs_3d = np.array([bs_loc[0], bs_loc[1], height_bs])
-    d = np.linalg.norm(user_3d - bs_3d)
-    fspl = (lambda_ / (4 * np.pi * d)) ** 2
-    shadowing_dB = np.random.normal(0, sigma_dB)
-    shadowing = 10 ** (-shadowing_dB / 10)
-    return fspl * shadowing
-
-
-# Calculate the rate and SINR of each UAV on a single channel
-def calculate_users_rates_per_channel(user_transmission_powers_one_channel,
-                                      path_losses, user_bs_associations, users_in_same_channel,
-                                      max_user_rate=max_user_rate,
-                                      consider_interference=True):
-    num_users, num_bs = path_losses.shape
-    users_at_bs = np.tile(user_transmission_powers_one_channel.reshape(-1, 1), (1, num_bs)) * path_losses
-    bs_received = np.sum(users_at_bs, axis=0)
-    selected_powers = np.array([users_at_bs[i, assoc] for i, assoc in enumerate(user_bs_associations)])
-    interference = np.zeros(num_users)
-    if consider_interference:
-        for i in users_in_same_channel:
-            assoc = user_bs_associations[i]
-            interference[i] = bs_received[assoc] - selected_powers[i]
-    sinrs = selected_powers / (interference + NOISE)
-    rates = np.log2(1 + sinrs)
-    rates = np.clip(rates, 0, max_user_rate)
-    return rates, sinrs
-
-# Calculate transfer rate (Mbps)
-def calculate_tx_rate(tx_power_W, interference, channel_gain, noise, bandwidth_Hz):
-    SNR_linear = (tx_power_W * channel_gain) / (interference + noise)
-    capacity_bps = bandwidth_Hz * np.log2(1 + SNR_linear)
-    return capacity_bps / 1e6
-
-
-def calculate_path_loss_user_bs(user_loc, bs_loc, alpha_path_loss=2):
-    # alpha_path_loss: path-loss exponent
-
-    user_loc = np.concatenate([user_loc, [height_uav]])
-    bs_loc = np.concatenate([bs_loc, [height_bs]])
-    user_3d = np.array([user_loc[0], user_loc[1], height_uav])
-    bs_3d = np.array([bs_loc[0], bs_loc[1], height_bs])
-    d = np.linalg.norm(user_3d - bs_3d)
-    path_loss =  d** (- alpha_path_loss)
-
-    return path_loss
-
+# Function to calculate channel gains and user-base station associations over time
 def calculate_path_losses_and_associations_all_time(user_locations_all_time, bs_locations,
                                                     num_time_slots):
     num_users = user_locations_all_time.shape[1]
     num_base_stations = bs_locations.shape[0]
 
-    path_losses_all_time = np.zeros((num_time_slots, num_users, num_base_stations))
+    channel_gain_all_time = np.zeros((num_time_slots, num_users, num_base_stations))
 
+    # Loop through each time slot and calculate the channel gain for each user-base station pair
     for t in range(num_time_slots):
         for u in range(num_users):
             for b in range(num_base_stations):
-                path_losses_all_time[t, u, b] = calculate_path_loss_user_bs(user_locations_all_time[t, u, :],
-                                                                            bs_locations[b])
+                channel_gain_all_time[t, u, b] = calculate_channel_gain(user_locations_all_time[t, u, :],
+                                                                        bs_locations[b])
 
-    user_bs_associations_num_all_time = path_losses_all_time.argmax(axis=-1)
+    # Find the base station with the highest channel gain for each user
+    user_bs_associations_num_all_time = channel_gain_all_time.argmax(axis=-1)
 
-    return path_losses_all_time, user_bs_associations_num_all_time
+    return channel_gain_all_time, user_bs_associations_num_all_time
+
+# Function to calculate the rate and SINR for each UAV on a single channel ------
+def calculate_users_rates_per_channel(user_transmission_powers_one_channel,
+                                      channel_gain, user_bs_associations, users_in_same_channel,
+                                      max_user_rate = MAX_UAV_RATE,
+                                      consider_interference=True):
+    num_users, num_bs = channel_gain.shape
+    
+    # Calculate the received power at each base station
+    users_at_bs = np.tile(user_transmission_powers_one_channel.reshape(-1, 1), (1, num_bs)) * channel_gain
+    bs_received = np.sum(users_at_bs, axis=0)
+    
+    # Selected power for each user based on its base station association
+    selected_powers = np.array([users_at_bs[i, assoc] for i, assoc in enumerate(user_bs_associations)])
+    interference = np.zeros(num_users)
+    
+    # Calculate interference from users transmitting on the same channel
+    if consider_interference:
+        for i in users_in_same_channel:
+            assoc = user_bs_associations[i]
+            interference[i] = bs_received[assoc] - selected_powers[i]
+    
+    # Calculate SINR (Signal to Interference + Noise Ratio)
+    sinrs = selected_powers / (interference + NOISE_LEVEL)
+    
+    # Calculate the transmission rates based on the SINR values
+    rates = np.log2(1 + sinrs)
+    rates = np.clip(rates, 0, max_user_rate)  # Clip the rates to max_user_rate
+    return rates, sinrs
+
+# Function to calculate the transmission rate (Mbps) for each user -------------
+def calculate_tx_rate(tx_power_W, interference, channel_gain, noise, bandwidth_Hz):
+    # Calculate the SNR in linear scale
+    SNR_linear = (tx_power_W * channel_gain) / (interference + noise)
+    # Calculate the channel capacity (in bps) using Shannon's formula
+    capacity_bps = bandwidth_Hz * np.log2(1 + SNR_linear)
+    return capacity_bps / 1e6  # Convert from bps to Mbps

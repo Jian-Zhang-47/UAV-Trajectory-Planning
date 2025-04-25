@@ -6,8 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-from config import (buffer_capacity, history_size, batch_size,
-                    fc_sizes, lstm_state_size, learning_rate)
+from config import *
 
 th.cuda.empty_cache()
 
@@ -19,9 +18,9 @@ class ReplayBuffer(ABC):
         self.num_users = num_users
         self.num_features = num_features
 
-        self.capacity = buffer_capacity
-        self.history_size = history_size
-        self.batch_size = batch_size
+        self.capacity = BUFFER_CAPACITY
+        self.history_size = HISTORY_SIZE
+        self.batch_size = BATCH_SIZE
         self.device = device
 
         self.state_memory = np.zeros(
@@ -92,9 +91,9 @@ class DeepQNetwork(nn.Module):
         self.num_actions = num_actions
         self.device = device
 
-        self.fc_sizes = fc_sizes
-        self.lstm_state_size = lstm_state_size
-        self.learning_rate = learning_rate
+        self.fc_sizes = FC_LAYER_SIZES
+        self.lstm_state_size = LSTM_STATE_SIZE
+        self.learning_rate = LEARNING_RATE
 
         # Build the Modules (LSTM + FC)
         self.lstm = nn.LSTM(self.num_features, self.lstm_state_size, batch_first=True)

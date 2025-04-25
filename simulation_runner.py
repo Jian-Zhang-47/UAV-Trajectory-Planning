@@ -30,22 +30,20 @@ class SimulationRunner:
 
         self.env = Env(num_time_slots=self.num_time_slots, user_route = self.user_route, base_stations_locations=self.base_stations_locations)
 
-        self.saving_folder = results_folder
+        self.saving_folder = RESULTS_FOLDER
 
     def run_one_episode(self):
         if not os.path.exists(self.saving_folder):
             os.makedirs(self.saving_folder)
         print(f'starting ...')
 
-
         ma_d3ql = MA_D3QL(self.num_users, self.env.num_channels, self.env.power_level_all_channels, self.env.num_features, self.num_time_slots)
-
         ma_d3ql.run_training(self.env, self.num_time_slots, saving_folder=self.saving_folder)
 
-        for ep in range(num_episodes_test):
+        for ep in range(NUM_TEST_EPISODES):
 
-            torch.manual_seed(seeds_test[ep])
-            np.random.seed(seeds_test[ep])
+            torch.manual_seed(TEST_SEEDS[ep])
+            np.random.seed(TEST_SEEDS[ep])
 
             # Test environment
             state, _ = self.env.reset(episode_num=0)
@@ -65,7 +63,6 @@ class SimulationRunner:
                         state, reward, done, _, _ = self.env.step(action, channel_assignment_dict)
 
                         pbar.update(1)
-
 
             np.save(f'{self.saving_folder}/user_locations_all_time_{ep}.npy',
                     self.env.user_locations_all_time)

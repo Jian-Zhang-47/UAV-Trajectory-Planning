@@ -2,15 +2,16 @@ import numpy as np
 import random
 from config import *
 
-# Determine whether the current point conflicts with obstacles
-def is_segment_safe(current, candidate, obs, safe_distance, num_samples=10):
+# Function to check if a segment is safe considering obstacles and safety distance
+def is_segment_safe(current, candidate, obstacles, safe_distance, num_samples=10):
     for t in np.linspace(0, 1, num_samples):
         point = current + t * (candidate - current)
-        if np.linalg.norm(point - obs) < safe_distance:
+        if np.linalg.norm(point - obstacles) < safe_distance:
             return False
     return True
 
-# Calculate the detour path from p1->p2 (considering obstacle safety distance)
+
+# Function to compute the detour path, considering obstacle avoidance
 def detour_edge_multi(p1, p2, obstacles, safe_distance, max_iter=20, init_epsilon=0.2):
     route = [p1]
     current = p1
@@ -52,7 +53,7 @@ def detour_edge_multi(p1, p2, obstacles, safe_distance, max_iter=20, init_epsilo
             while not is_segment_safe(current, cand2, violation_obs, safe_distance) and epsilon < max_epsilon:
                 epsilon += 0.1
                 cand2 = violation_obs + n2 * safe_distance * (1 + epsilon)
-            
+
             L1 = np.linalg.norm(current - cand1) + np.linalg.norm(cand1 - p2)
             L2 = np.linalg.norm(current - cand2) + np.linalg.norm(cand2 - p2)
             detour_point = cand1 if L1 < L2 else cand2
@@ -63,7 +64,8 @@ def detour_edge_multi(p1, p2, obstacles, safe_distance, max_iter=20, init_epsilo
     route.append(p2)
     return route
 
-# Calculate the distance between two points after taking detours into account
+
+# Calculate the detour distance for a given path segment
 def detour_distance_multi(p1, p2, obstacles, safe_distance):
     sub_route = detour_edge_multi(p1, p2, obstacles, safe_distance)
     dist = 0
@@ -71,14 +73,16 @@ def detour_distance_multi(p1, p2, obstacles, safe_distance):
         dist += np.linalg.norm(sub_route[i+1] - sub_route[i])
     return dist
 
-# Calculate the total detour distance for the entire path
+
+# Calculate the total detour distance for a complete route
 def route_cost_multi(route_points, obstacles, safe_distance):
     total = 0
     for i in range(len(route_points) - 1):
         total += detour_distance_multi(route_points[i], route_points[i+1], obstacles, safe_distance)
     return total
 
-# Generate initial path using nearest neighbor algorithm
+
+# Nearest neighbor algorithm to generate an initial path
 def nearest_neighbor_route(waypoints, obstacles, safe_distance):
     n = len(waypoints)
     if n <= 1:
@@ -92,9 +96,9 @@ def nearest_neighbor_route(waypoints, obstacles, safe_distance):
         min_cost = float('inf')
         for j in range(1, n - 1):
             if not visited[j]:
-                c = detour_distance_multi(waypoints[current], waypoints[j], obstacles, safe_distance)
-                if c < min_cost:
-                    min_cost = c
+                cost = detour_distance_multi(waypoints[current], waypoints[j], obstacles, safe_distance)
+                if cost < min_cost:
+                    min_cost = cost
                     next_idx = j
         route.append(next_idx)
         visited[next_idx] = True
@@ -102,7 +106,8 @@ def nearest_neighbor_route(waypoints, obstacles, safe_distance):
     route.append(n - 1)
     return route
 
-# 2-opt local search optimization path
+
+# Apply 2-opt optimization to improve the path
 def two_opt(route, waypoints, obstacles, safe_distance, improvement_threshold=1e-6):
     best_route = route[:]
     best_cost = route_cost_multi([waypoints[i] for i in best_route], obstacles, safe_distance)
@@ -124,7 +129,8 @@ def two_opt(route, waypoints, obstacles, safe_distance, improvement_threshold=1e
                 break
     return best_route
 
-# Generate initial population (including nearest neighbor path)
+
+# Generate a population of routes for the Genetic Algorithm (GA)
 def create_population(waypoints, obstacles, safe_distance, pop_size):
     n = len(waypoints)
     population = []
@@ -136,20 +142,23 @@ def create_population(waypoints, obstacles, safe_distance, pop_size):
         population.append(rand_route)
     return population
 
-# Evaluate the total cost of each path in the population
+
+# Evaluate the cost of each route in the population
 def evaluate_population(population, waypoints, obstacles, safe_distance):
     costs = []
     for route in population:
         costs.append(route_cost_multi([waypoints[i] for i in route], obstacles, safe_distance))
     return np.array(costs)
 
-# Select elite
+
+# Select the best routes (elite) based on their cost
 def selection(population, costs, elite_size):
     idx_sorted = np.argsort(costs)
     new_pop = [population[i] for i in idx_sorted[:elite_size]]
     return new_pop, idx_sorted
 
-# Cross
+
+# Perform crossover between two parent routes
 def crossover(parent1, parent2):
     n = len(parent1)
     start = random.randint(1, n-3)
@@ -163,7 +172,8 @@ def crossover(parent1, parent2):
         child[pos] = parent2_seq[i]
     return child
 
-# Mutation
+
+# Perform mutation on a route to introduce diversity
 def mutate(route, mutation_rate):
     new_route = route[:]
     n = len(new_route)
@@ -173,26 +183,29 @@ def mutate(route, mutation_rate):
             new_route[i], new_route[j] = new_route[j], new_route[i]
     return new_route
 
-# Genetic Algorithm for TSP Path Solving (Combining GA and 2-opt)
+
+# Genetic Algorithm (GA) for solving the Traveling Salesman Problem (TSP) path optimization
 def genetic_algorithm_tsp(waypoints, obstacles, safe_distance, pop_size, generations, elite_size, mutation_rate):
     population = create_population(waypoints, obstacles, safe_distance, pop_size)
-    for _ in range(generations):
+    for generation in range(generations):
         costs = evaluate_population(population, waypoints, obstacles, safe_distance)
-        new_pop, idx_sorted = selection(population, costs, elite_size)
-        while len(new_pop) < pop_size:
-            indices = np.random.choice(idx_sorted[:len(population)//2], 2, replace=False)
-            p1 = population[int(indices[0])]
-            p2 = population[int(indices[1])]
-            child = crossover(p1, p2)
+        elite_routes, _ = selection(population, costs, elite_size)
+
+        new_population = elite_routes[:]
+        while len(new_population) < pop_size:
+            parent1, parent2 = random.sample(elite_routes, 2)
+            child = crossover(parent1, parent2)
             child = mutate(child, mutation_rate)
-            new_pop.append(child)
-        population = new_pop
+            new_population.append(child)
+
+        population = new_population
+
     final_costs = evaluate_population(population, waypoints, obstacles, safe_distance)
-    best_route = population[int(np.argmin(final_costs))]
-    return best_route
+    best_route_idx = np.argmin(final_costs)
+    return population[best_route_idx]
 
 # First use GA to solve, then use 2-opt to locally optimize the TSP path
-def optimize_route(waypoints, obstacles, safe_distance, pop_size=POP_SIZE, generations=GENERATIONS, elite_size=ELITE_SIZE, mutation_rate=MUTATION_RATE):
+def optimize_route(waypoints, obstacles, safe_distance, pop_size=POPULATION_SIZE, generations=NUM_GENERATIONS, elite_size=ELITE_SIZE, mutation_rate=MUTATION_RATE):
     best_route_ga = genetic_algorithm_tsp(waypoints, obstacles, safe_distance, pop_size, generations, elite_size, mutation_rate)
     best_route = two_opt(best_route_ga, waypoints, obstacles, safe_distance)
     return best_route
@@ -225,11 +238,8 @@ def generate_points(route, velocity):
     positions = np.array(positions)
     return positions
 
-
-
-
 def determine_users_locations(optimization_paths, num_users=NUM_UAVS,
-                              velocity=SPEED
+                              velocity=UAV_SPEED
                               ):
     max_time_slots, user_points = time_slot_max(optimization_paths)
     user_locations_all_time = np.zeros((max_time_slots, num_users, 2))
@@ -243,7 +253,7 @@ def determine_users_locations(optimization_paths, num_users=NUM_UAVS,
     
     return user_locations_all_time
 
-def time_slot_max(optimization_paths, num_users=NUM_UAVS, velocity=SPEED):
+def time_slot_max(optimization_paths, num_users=NUM_UAVS, velocity=UAV_SPEED):
     user_points = []
     for u in range(num_users):
         points = generate_points(optimization_paths[u], velocity)
