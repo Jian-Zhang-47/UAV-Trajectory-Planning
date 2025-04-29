@@ -95,7 +95,7 @@ class Env(gymnasium.Env):
                 self.sinrs_all_time[self.t, c, :] = 0
                 continue
 
-            rates_c, sinrs_c = calculate_users_rates_per_channel(
+            rates_c, sinrs_c = calculate_uav_rx_rates_per_channel(
                 powers_c,
                 self.path_losses_all_time[self.t],
                 self.user_bs_associations_num_all_time[self.t],

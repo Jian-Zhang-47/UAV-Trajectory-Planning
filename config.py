@@ -7,7 +7,7 @@ AREA_SIZE = 1000            # Area size (meters)
 NUM_UAVS = 4               # Number of UAVs
 NUM_BSS = 2                # Number of Base Stations (BSs)
 NUM_TARGETS = 30           # Number of targets in the environment
-NUM_OBSTACLES = 1          # Number of obstacles
+NUM_OBSTACLES = 0          # Number of obstacles
 COVERAGE_RADIUS = 50       # UAV coverage radius and target merging radius (meters)
 SAFE_RADIUS = 80           # Safety distance from obstacles (meters)
 UAV_HEIGHT = 100           # UAV flying height (meters)
@@ -33,12 +33,13 @@ MIN_SNR = 10               # Minimum Signal-to-Noise Ratio (SNR)
 NOISE_LEVEL = 1e-13        # Noise level (W)
 BANDWIDTH = 20e6           # Transmission bandwidth (Hz)
 IMAGE_SIZE = 20            # Image size (MB)
-MAX_UAV_RATE = 10         # Maximum UAV rate (Mbps)
-FREQUENCY = 2.4e9         # Frequency (Hz)
+MAX_UAV_RATE = 10          # Maximum UAV rate (Mbps)
+FREQUENCY = 2.4e9          # Frequency (Hz)
 NUM_CHANNELS = 2           # Number of channels available
 MAX_TX_POWER = 0.1         # Maximum transmission power (Watts)
-MIN_TX_POWER = 0.01       # Minimum transmission power (Watts)
+MIN_TX_POWER = 0.01        # Minimum transmission power (Watts)
 TX_POWER_LEVELS = np.concatenate((np.array([MIN_TX_POWER]), np.linspace(0.05, MAX_TX_POWER, 20)))
+EFFICIENCY = 0.9           # Optional efficiency factor for tx rate
 
 # Genetic Algorithm (GA) Parameters ---------------------------------------
 POPULATION_SIZE = 300      # Population size for GA

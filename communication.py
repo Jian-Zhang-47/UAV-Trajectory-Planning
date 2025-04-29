@@ -99,18 +99,18 @@ def calculate_path_losses_and_associations_all_time(user_locations_all_time, bs_
     return channel_gain_all_time, user_bs_associations_num_all_time
 
 # Function to calculate the rate and SINR for each UAV on a single channel ------
-def calculate_users_rates_per_channel(user_transmission_powers_one_channel,
+def calculate_uav_rx_rates_per_channel(user_transmission_powers_one_channel,
                                       channel_gain, user_bs_associations, users_in_same_channel,
                                       max_user_rate = MAX_UAV_RATE,
                                       consider_interference=True):
     num_users, num_bs = channel_gain.shape
     
     # Calculate the received power at each base station
-    users_at_bs = np.tile(user_transmission_powers_one_channel.reshape(-1, 1), (1, num_bs)) * channel_gain
-    bs_received = np.sum(users_at_bs, axis=0)
+    uavs_at_bs = np.tile(user_transmission_powers_one_channel.reshape(-1, 1), (1, num_bs)) * channel_gain
+    bs_received = np.sum(uavs_at_bs, axis=0)
     
-    # Selected power for each user based on its base station association
-    selected_powers = np.array([users_at_bs[i, assoc] for i, assoc in enumerate(user_bs_associations)])
+    # Selected rx power for each uav based on its base station association
+    selected_powers = np.array([uavs_at_bs[i, assoc] for i, assoc in enumerate(user_bs_associations)])
     interference = np.zeros(num_users)
     
     # Calculate interference from users transmitting on the same channel
@@ -128,9 +128,11 @@ def calculate_users_rates_per_channel(user_transmission_powers_one_channel,
     return rates, sinrs
 
 # Function to calculate the transmission rate (Mbps) for each user -------------
-def calculate_tx_rate(tx_power_W, interference, channel_gain, noise, bandwidth_Hz):
+def calculate_tx_rate(tx_power_W, interference, channel_gain, noise, bandwidth_Hz, efficiency=EFFICIENCY):
     # Calculate the SNR in linear scale
     SNR_linear = (tx_power_W * channel_gain) / (interference + noise)
     # Calculate the channel capacity (in bps) using Shannon's formula
     capacity_bps = bandwidth_Hz * np.log2(1 + SNR_linear)
-    return capacity_bps / 1e6  # Convert from bps to Mbps
+    achievable_rate_bps = efficiency * capacity_bps
+    achievable_rate_Mbps = achievable_rate_bps / 1e6
+    return achievable_rate_Mbps  # Convert from bps to Mbps
