@@ -58,7 +58,7 @@ random.seed(42)
 torch.manual_seed(42)
 
 # Simulation Configuration -------------------------------------------------
-NUM_TRAIN_EPISODES = 1    # Number of training episodes
+NUM_TRAIN_EPISODES = 200    # Number of training episodes
 NUM_TEST_EPISODES = 1      # Number of test episodes
 RESULTS_FOLDER = 'results' # Directory to save results
 VERBOSE_MODE = 0           # Verbosity level for output
