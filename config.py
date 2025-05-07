@@ -4,18 +4,18 @@ import torch
 
 # Environment Configuration -------------------------------------------------
 AREA_SIZE = 1000            # Area size (meters)
-NUM_UAVS = 4               # Number of UAVs
-NUM_BSS = 2                # Number of Base Stations (BSs)
+NUM_UAVS = 3               # Number of UAVs
+NUM_BSS = 1                # Number of Base Stations (BSs)
 NUM_TARGETS = 30           # Number of targets in the environment
-NUM_OBSTACLES = 0          # Number of obstacles
+NUM_OBSTACLES = 2          # Number of obstacles
 COVERAGE_RADIUS = 50       # UAV coverage radius and target merging radius (meters)
-SAFE_RADIUS = 80           # Safety distance from obstacles (meters)
+SAFE_RADIUS = 50           # Safety distance from obstacles (meters)
 UAV_HEIGHT = 100           # UAV flying height (meters)
 BS_HEIGHT = 50             # Base station height (meters)
 
 # UAV Specifications -------------------------------------------------------
 INITIAL_ENERGY = 2.5e5     # UAV energy limit (Joules)
-UAV_SPEED = 8              # UAV speed (m/s)
+UAV_SPEED = 10.33              # UAV speed (m/s)
 ROTOR_TIP_SPEED = 120      # Tip speed of rotor blade (m/s)
 PARASITE_DRAG_COEFF = 0.6  # Parasite drag coefficient
 AIR_DENSITY = 1.225        # Air density (kg/m^3)
@@ -35,7 +35,7 @@ BANDWIDTH = 20e6           # Transmission bandwidth (Hz)
 IMAGE_SIZE = 20            # Image size (MB)
 MAX_UAV_RATE = 10          # Maximum UAV rate (Mbps)
 FREQUENCY = 2.4e9          # Frequency (Hz)
-NUM_CHANNELS = 2           # Number of channels available
+NUM_CHANNELS = 1           # Number of channels available
 MAX_TX_POWER = 0.1         # Maximum transmission power (Watts)
 MIN_TX_POWER = 0.01        # Minimum transmission power (Watts)
 TX_POWER_LEVELS = np.concatenate((np.array([MIN_TX_POWER]), np.linspace(0.05, MAX_TX_POWER, 20)))
@@ -58,7 +58,7 @@ random.seed(42)
 torch.manual_seed(42)
 
 # Simulation Configuration -------------------------------------------------
-NUM_TRAIN_EPISODES = 200    # Number of training episodes
+NUM_TRAIN_EPISODES = 1    # Number of training episodes
 NUM_TEST_EPISODES = 1      # Number of test episodes
 RESULTS_FOLDER = 'results' # Directory to save results
 VERBOSE_MODE = 0           # Verbosity level for output

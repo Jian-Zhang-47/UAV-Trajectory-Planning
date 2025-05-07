@@ -57,7 +57,7 @@ class SimulationRunner:
 
                         t = self.env.t
                         self.user_locations_all_time = determine_users_locations(self.user_route)
-                        channel_assignment_list = channel_assignment(self.user_locations_all_time[t])
+                        channel_assignment_list = channel_assignment()
                         channel_assignment_dict = {i: int(channel_assignment_list[i]) for i in range(self.num_users)}
                         channel_assignment_all_time[t] = channel_assignment_list
                         state, reward, done, _, _ = self.env.step(action, channel_assignment_dict)

@@ -1,7 +1,15 @@
 import numpy as np
 from sklearn.cluster import DBSCAN, KMeans
-from config import COVERAGE_RADIUS, NUM_UAVS
+from config import COVERAGE_RADIUS, NUM_UAVS, SAFE_RADIUS
 from scipy.spatial.distance import cdist
+
+def filter_targets_near_obstacles(targets, obstacles, safe_distance=SAFE_RADIUS):
+    filtered = []
+    for point in targets:
+        too_close = any(np.linalg.norm(point - obs) < safe_distance for obs in obstacles)
+        if not too_close:
+            filtered.append(point)
+    return np.array(filtered)
 
 def merge_targets_dbscan(targets, eps=COVERAGE_RADIUS):
     clustering = DBSCAN(eps=eps, min_samples=1).fit(targets)

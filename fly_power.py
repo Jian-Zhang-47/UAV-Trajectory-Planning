@@ -17,7 +17,7 @@ def fly_power(V=UAV_SPEED, U_tip=ROTOR_TIP_SPEED, d0=PARASITE_DRAG_COEFF, rho=AI
     
     # Calculate the terms based on UAV speed and rotor properties
     term1 = P0 * (1 + 3 * V**2 / U_tip**2)  # Term 1: Profile drag with velocity adjustment
-    term2 = Pi * np.sqrt(np.sqrt(1 + V**4 / (4 * v0**4)) - V**2 / (2 * v0**2))  # Term 2: Induced power correction
+    term2 = Pi * v0 / V # Term 2: Induced power correction
     term3 = 0.5 * d0 * rho * s * A * V**3  # Term 3: Parasite drag power
     
     # Return the total power required by summing all terms

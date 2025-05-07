@@ -111,11 +111,20 @@ class Env(gymnasium.Env):
         reward = {i: rate_per_user_this_time[i] / MAX_UAV_RATE for i in range(self.num_users)}
 
         # Determine if each UAV has reached its destination
-        done = {i: (self.user_locations_all_time[self.t, i, :] == self.user_locations_all_time[self.t+1, i, :]).all() 
-                for i in range(self.num_users)}
+        # done = {i: (self.user_locations_all_time[self.t, i, :] == self.user_locations_all_time[self.t+1, i, :]).all() 
+        #         for i in range(self.num_users)}
+        if self.t >= self.user_locations_all_time.shape[0] - 1:
+            done = {i: True for i in range(self.num_users)}
+        else:
+            done = {
+                i: (self.user_locations_all_time[self.t, i, :] == self.user_locations_all_time[self.t + 1, i, :]).all()
+                for i in range(self.num_users)
+            }
 
         # Move to the next time step
         self.t += 1
+        if self.t >= self.user_locations_all_time.shape[0]:
+            self.t = self.user_locations_all_time.shape[0] - 1
 
         # Prepare the UAV's next observation
         user_locations_normalized = self.user_locations_all_time[self.t]

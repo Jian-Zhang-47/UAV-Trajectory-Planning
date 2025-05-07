@@ -91,8 +91,9 @@ def simulate_uav_energy(uav_index, key_nodes, obstacles, safe_distance, P_opt_al
         channel_gain_val = state_bs[assigned_channel]
         rate = calculate_tx_rate(chosen_power, interference=interference_val,
                                  channel_gain=channel_gain_val, noise=NOISE_LEVEL, bandwidth_Hz=BANDWIDTH)
-
         # Ensure transmission rate is sufficient to transmit the image within the allowed time
+        rate = float(np.array(rate))
+
         tx_duration = IMAGE_SIZE / rate if rate > 0 else TRANSMISSION_TIME
         if tx_duration > TRANSMISSION_TIME:
             required_rate = IMAGE_SIZE / TRANSMISSION_TIME

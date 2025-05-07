@@ -25,43 +25,50 @@ class GATNet(nn.Module):
         return F.log_softmax(x, dim=1)
 
 # Function to assign channels to UAVs based on their positions -------------------
-def channel_assignment(uavs_pos, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS, 
-                       epochs=GAT_EPOCHS, lr=LEARNING_RATE_GAT, hidden_dim=HIDDEN_DIM_GAT):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    uav_features = torch.tensor(uavs_pos)
+# def channel_assignment(uavs_pos, num_channels=NUM_CHANNELS, num_uavs=NUM_UAVS, 
+#                        epochs=GAT_EPOCHS, lr=LEARNING_RATE_GAT, hidden_dim=HIDDEN_DIM_GAT):
+#     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#     uav_features = torch.tensor(uavs_pos)
     
-    # Create adjacency matrix representing UAVs as a graph
-    adj_matrix = torch.ones(num_uavs, num_uavs) - torch.eye(num_uavs)
-    edge_index, _ = dense_to_sparse(adj_matrix)
+#     # Create adjacency matrix representing UAVs as a graph
+#     adj_matrix = torch.ones(num_uavs, num_uavs) - torch.eye(num_uavs)
+#     edge_index, _ = dense_to_sparse(adj_matrix)
     
-    # Create data object for graph neural network
-    data = Data(x=uav_features, edge_index=edge_index).to(device)
+#     # Create data object for graph neural network
+#     data = Data(x=uav_features, edge_index=edge_index).to(device)
     
-    # Initialize GAT model, optimizer and loss function
-    model = GATNet(input_dim=uav_features.shape[1], hidden_dim=hidden_dim, output_dim=num_channels).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    loss_fn = nn.NLLLoss()
+#     # Initialize GAT model, optimizer and loss function
+#     model = GATNet(input_dim=uav_features.shape[1], hidden_dim=hidden_dim, output_dim=num_channels).to(device)
+#     optimizer = optim.Adam(model.parameters(), lr=lr)
+#     loss_fn = nn.NLLLoss()
     
-    # Define the target channels for each UAV
-    target_channels = torch.tensor([i % num_channels for i in range(num_uavs)], dtype=torch.long).to(device)
+#     # Define the target channels for each UAV
+#     target_channels = torch.tensor([i % num_channels for i in range(num_uavs)], dtype=torch.long).to(device)
     
-    # Training loop
-    model.train()
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-        data.x = data.x.float()
-        out = model(data.x, data.edge_index)
-        loss = loss_fn(out, target_channels)  # Calculate loss
-        loss.backward()
-        optimizer.step()
+#     # Training loop
+#     model.train()
+#     for epoch in range(epochs):
+#         optimizer.zero_grad()
+#         data.x = data.x.float()
+#         out = model(data.x, data.edge_index)
+#         loss = loss_fn(out, target_channels)  # Calculate loss
+#         loss.backward()
+#         optimizer.step()
     
-    # Evaluate the model to get final channel assignments
-    model.eval()
-    with torch.no_grad():
-        final_output = model(data.x, data.edge_index)
-        channels_assigned = final_output.argmax(dim=1).cpu().numpy()
+#     # Evaluate the model to get final channel assignments
+#     model.eval()
+#     with torch.no_grad():
+#         final_output = model(data.x, data.edge_index)
+#         channels_assigned = final_output.argmax(dim=1).cpu().numpy()
     
-    return channels_assigned
+#     return channels_assigned
+
+def channel_assignment():
+    c = []
+    for i in range(NUM_UAVS):
+        c.append(0)
+    return c
+
 
 # Function to calculate the channel gain between UAV and base station -----------
 def calculate_channel_gain(uav_pos, bs_loc, f_c=FREQUENCY, sigma_dB=8):

@@ -1,7 +1,7 @@
 import numpy as np
 from config import *
 from environment import generate_uavs, generate_targets, generate_obstacles, generate_base_stations
-from target_assignment import merge_targets_dbscan, assign_targets_kmeans
+from target_assignment import merge_targets_dbscan, assign_targets_kmeans, filter_targets_near_obstacles
 from path_planning import optimize_route, route_cost_multi, time_slot_max
 from simulation import simulate_uav_energy
 from visualization import plot_env_trajectory
@@ -16,7 +16,8 @@ bss = generate_base_stations()  # Generate base station locations
 
 # 2. Merge Targets and Assign Clusters to UAVs
 # Merge targets using DBSCAN and assign clusters to UAVs using KMeans
-clusters = merge_targets_dbscan(targets)
+filtered_targets = filter_targets_near_obstacles(targets, obstacles)
+clusters = merge_targets_dbscan(filtered_targets)
 assigned_clusters = assign_targets_kmeans(uavs, clusters)
 
 # Display the number of clusters assigned to each UAV

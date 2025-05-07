@@ -92,7 +92,7 @@ class MA_D3QL:
                     action = self.make_action_for_all_users(state)
                     t = env.t
                     user_locations_now = env.user_locations_all_time[t]
-                    channel_assignment_list = channel_assignment(user_locations_now)
+                    channel_assignment_list = channel_assignment()
                     channel_assignment_dict = {i: int(channel_assignment_list[i]) for i in range(self.num_users)}
                     state, reward, done, _, _ = env.step(action, channel_assignment_dict)
                     avg_reward = np.array(list(reward.values())).mean()
